@@ -330,7 +330,14 @@
         rewardBtn.disabled = false;
         rewardBtn.textContent = 'Watch Ad for +50 Coins 💰';
         running=false;
-        shareBtn.classList.add('hidden');
+        
+        // Share button tabhi dikhayein jab woh kaam kar sakta hai
+        if (typeof appcreator24 !== 'undefined' && appcreator24.share || navigator.share) {
+            shareBtn.classList.remove('hidden');
+        } else {
+            shareBtn.classList.add('hidden');
+        }
+        
         const coinsGained = Math.ceil(score / 2);
         coinsEarnedLbl.textContent = `+${coinsGained} Coins!`;
         playerData.totalCoins += coinsGained;
@@ -352,14 +359,11 @@
                 shouldSave = true;
             }
         }
-
-        if (navigator.share) {
-            shareBtn.classList.remove('hidden');
-        }
         
         checkAchievements();
         savePlayerData();
         finalLbl.textContent=`Your Score: ${score}`;
+        
         over.classList.remove("hidden");
         bgm.pause();
       }
@@ -391,24 +395,33 @@
 
       function renderAchievements() { achievementsGrid.innerHTML = ''; achievementsList.forEach(ach => { const unlocked = playerData.achievements[ach.id]; const card = document.createElement('div'); card.className = `achievement-card ${unlocked ? 'unlocked' : ''}`; card.innerHTML = ` <div class="icon">${unlocked ? ach.icon : '❓'}</div> <div class="name">${unlocked ? ach.name : '??????'}</div> <div class="desc">${unlocked ? ach.desc : 'Keep playing to unlock!'}</div> `; achievementsGrid.appendChild(card); }); }
 
-      // === UPDATED SHARE FUNCTION ===
+      // === FINAL SHARE FUNCTION ===
       async function shareScore() {
           const gameModeName = gameMode === 'classic' ? 'Classic' : 'Time Attack';
-          const shareData = {
-              title: 'Slicenado Score!',
-              text: `Maine Slicenado (${gameModeName} Mode) mein ${score} score kiya! Kya tum isse tod sakte ho? 🏆 #Slicenado`,
-              url: window.location.href
-          };
-          try {
-              await navigator.share(shareData);
-              console.log('Score successfully shared.');
-          } catch (err) {
-              console.error('Share failed:', err);
-              // Agar user ne share cancel kiya hai toh alert na dikhayein.
-              // 'AbortError' iske liye standard error naam hai.
-              if (err.name !== 'AbortError') {
-                alert("Share feature available nahi hai. Yeh HTTPS connection par hi kaam karta hai.");
+          const shareText = `Maine Slicenado (${gameModeName} Mode) mein ${score} score kiya! Kya tum isse tod sakte ho? 🏆 #Slicenado`;
+          const shareUrl = window.location.href;
+
+          // Pehle AppCreator24 ka native share try karein
+          if (typeof appcreator24 !== 'undefined' && appcreator24.share) {
+              appcreator24.share(shareText, shareUrl);
+          }
+          // Agar AppCreator24 mein nahi hai, toh standard browser share try karein
+          else if (navigator.share) {
+              try {
+                  await navigator.share({
+                      title: 'Slicenado Score!',
+                      text: shareText,
+                      url: shareUrl
+                  });
+              } catch (err) {
+                  if (err.name !== 'AbortError') {
+                      alert("Is browser mein share feature support nahi hai.");
+                  }
               }
+          }
+          // Agar kuch bhi kaam na kare
+          else {
+              alert("Aapke device par share feature available nahi hai.");
           }
       }
 
@@ -424,13 +437,12 @@
       achievementsBtn.addEventListener('click', () => { playSound(openMenuSfx); start.classList.add('hidden'); achievementsScreen.classList.remove('hidden'); renderAchievements(); });
       achievementsBackBtn.addEventListener('click', () => { playSound(clickSfx); achievementsScreen.classList.add('hidden'); start.classList.remove('hidden'); });
       
-      // === REWARDED AD LOGIC ===
+      // === FINAL REWARDED AD LOGIC ===
       window.onRewardGranted = function() {
         const rewardAmount = 50;
         playerData.totalCoins += rewardAmount;
         savePlayerData();
         totalCoinsLbl.textContent = playerData.totalCoins; 
-        alert(`Badhai ho! Aapko ${rewardAmount} coins mile!`);
         rewardBtn.disabled = true;
         rewardBtn.textContent = 'Inaam Mil Gaya!';
       }
@@ -439,7 +451,8 @@
         if (typeof appcreator24 !== 'undefined' && appcreator24.showRewardAd) {
           appcreator24.showRewardAd();
         } else {
-          alert("Testing Mode: Yahaan ad dikhega. Abhi ke liye aapko inaam de rahe hain.");
+          // Testing fallback
+          console.log("Testing mode or appcreator24 object not found. Giving direct reward.");
           window.onRewardGranted();
         }
       }
