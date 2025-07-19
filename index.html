@@ -122,7 +122,6 @@
       <span id="coinsEarned" style="font-size:1.2rem; color:#ffd700;"></span>
       
       <button id="rewardBtn" class="btn">Watch Ad for +50 Coins 💰</button>
-      <button id="shareBtn" class="btn hidden">🚀 Share Score</button>
       <button id="again" class="btn">Restart</button>
     </div>
 
@@ -181,7 +180,7 @@
       // === DOM ELEMENTS ===
       const $=id=>document.getElementById(id);
       const canvas=$("canvas"),ctx=canvas.getContext("2d");
-      const wrap=$("wrap"),start=$("start"),over=$("over"),playClassic=$("playClassic"),playTimeAttack=$("playTimeAttack"),again=$("again"),knifeEl=$("knife"),scoreLbl=$("scoreLbl"),hiLbl=$("hiLbl"),finalLbl=$("final"),livesLbl=$("livesLbl"),timerLbl=$("timerLbl"), loadingStatus=$("loading-status"), shareBtn=$("shareBtn"), rewardBtn=$("rewardBtn");
+      const wrap=$("wrap"),start=$("start"),over=$("over"),playClassic=$("playClassic"),playTimeAttack=$("playTimeAttack"),again=$("again"),knifeEl=$("knife"),scoreLbl=$("scoreLbl"),hiLbl=$("hiLbl"),finalLbl=$("final"),livesLbl=$("livesLbl"),timerLbl=$("timerLbl"), loadingStatus=$("loading-status"), rewardBtn=$("rewardBtn");
       const shopBtn=$("shopBtn"), shop=$("shop"), shopBackBtn=$("shop-back-btn"), totalCoinsLbl=$("totalCoins"), knifeGrid=$("knife-grid"), coinsEarnedLbl=$("coinsEarned"), effectGrid=$("effect-grid");
       const achievementsBtn = $("achievementsBtn"), achievementsScreen = $("achievements-screen"), achievementsBackBtn = $("achievements-back-btn"), achievementsGrid = $("achievements-grid");
       const allButtons = [playClassic, playTimeAttack, achievementsBtn, shopBtn];
@@ -331,13 +330,6 @@
         rewardBtn.textContent = 'Watch Ad for +50 Coins 💰';
         running=false;
         
-        // Share button tabhi dikhayein jab woh kaam kar sakta hai
-        if (typeof appcreator24 !== 'undefined' && appcreator24.share || navigator.share) {
-            shareBtn.classList.remove('hidden');
-        } else {
-            shareBtn.classList.add('hidden');
-        }
-        
         const coinsGained = Math.ceil(score / 2);
         coinsEarnedLbl.textContent = `+${coinsGained} Coins!`;
         playerData.totalCoins += coinsGained;
@@ -395,41 +387,17 @@
 
       function renderAchievements() { achievementsGrid.innerHTML = ''; achievementsList.forEach(ach => { const unlocked = playerData.achievements[ach.id]; const card = document.createElement('div'); card.className = `achievement-card ${unlocked ? 'unlocked' : ''}`; card.innerHTML = ` <div class="icon">${unlocked ? ach.icon : '❓'}</div> <div class="name">${unlocked ? ach.name : '??????'}</div> <div class="desc">${unlocked ? ach.desc : 'Keep playing to unlock!'}</div> `; achievementsGrid.appendChild(card); }); }
 
-      // === FINAL SHARE FUNCTION ===
-      async function shareScore() {
-          const gameModeName = gameMode === 'classic' ? 'Classic' : 'Time Attack';
-          const shareText = `Maine Slicenado (${gameModeName} Mode) mein ${score} score kiya! Kya tum isse tod sakte ho? 🏆 #Slicenado`;
-          const shareUrl = window.location.href;
-
-          // Pehle AppCreator24 ka native share try karein
-          if (typeof appcreator24 !== 'undefined' && appcreator24.share) {
-              appcreator24.share(shareText, shareUrl);
-          }
-          // Agar AppCreator24 mein nahi hai, toh standard browser share try karein
-          else if (navigator.share) {
-              try {
-                  await navigator.share({
-                      title: 'Slicenado Score!',
-                      text: shareText,
-                      url: shareUrl
-                  });
-              } catch (err) {
-                  if (err.name !== 'AbortError') {
-                      alert("Is browser mein share feature support nahi hai.");
-                  }
-              }
-          }
-          // Agar kuch bhi kaam na kare
-          else {
-              alert("Aapke device par share feature available nahi hai.");
-          }
-      }
 
       // === EVENT LISTENERS ===
       playClassic.addEventListener("click",()=>startGame('classic'));
       playTimeAttack.addEventListener("click",()=>startGame('timeAttack'));
-      again.addEventListener("click", () => { playSound(clickSfx); startGame(gameMode); });
-      shareBtn.addEventListener('click', shareScore);
+      
+      // *** MODIFIED RESTART BUTTON ***
+      again.addEventListener("click", () => { 
+        playSound(clickSfx); 
+        showInterstitialAd(); // Pehle ad dikhayenge
+        startGame(gameMode); // Fir game restart karenge
+      });
 
       shopBtn.addEventListener('click', () => { playSound(openMenuSfx); start.classList.add('hidden'); shop.classList.remove('hidden'); renderShop(); });
       shopBackBtn.addEventListener('click', () => { playSound(clickSfx); shop.classList.add('hidden'); start.classList.remove('hidden'); });
@@ -437,8 +405,15 @@
       achievementsBtn.addEventListener('click', () => { playSound(openMenuSfx); start.classList.add('hidden'); achievementsScreen.classList.remove('hidden'); renderAchievements(); });
       achievementsBackBtn.addEventListener('click', () => { playSound(clickSfx); achievementsScreen.classList.add('hidden'); start.classList.remove('hidden'); });
       
-      // === FINAL REWARDED AD LOGIC ===
+      
+      // ===================================
+      // === ADS LOGIC - YAHAN DHYAN DEIN ===
+      // ===================================
+      
+      // -- Rewarded Ad --
+      // Ad poora dekhne par yeh function AppCreator24 khud call karega
       window.onRewardGranted = function() {
+        console.log("Inaam mil gaya!");
         const rewardAmount = 50;
         playerData.totalCoins += rewardAmount;
         savePlayerData();
@@ -447,16 +422,33 @@
         rewardBtn.textContent = 'Inaam Mil Gaya!';
       }
 
+      // Rewarded Ad dikhane ke liye function
       function showRewardAd() {
+        // Yeh check karega ki 'appcreator24' object astitva mein hai ya nahi
         if (typeof appcreator24 !== 'undefined' && appcreator24.showRewardAd) {
+          console.log("Rewarded ad dikhane ka command de raha hoon...");
+          rewardBtn.disabled = true;
+          rewardBtn.textContent = 'Ad Load Ho Raha Hai...';
           appcreator24.showRewardAd();
         } else {
-          // Testing fallback
-          console.log("Testing mode or appcreator24 object not found. Giving direct reward.");
+          // Agar appcreator24 nahi milta, to test ke liye direct reward de dega.
+          console.log("Testing mode: Direct reward diya gaya.");
           window.onRewardGranted();
         }
       }
       rewardBtn.addEventListener('click', showRewardAd);
+
+      // -- Interstitial Ad --
+      // Poori screen ka ad dikhane ke liye function
+      function showInterstitialAd() {
+        if (typeof appcreator24 !== 'undefined' && appcreator24.showInterstitialAd) {
+          console.log("Interstitial ad dikhane ka command de raha hoon...");
+          appcreator24.showInterstitialAd();
+        } else {
+          console.log("Testing mode: Interstitial ad nahi chala.");
+        }
+      }
+
 
       // === INITIALIZE GAME ===
       runIntro();
